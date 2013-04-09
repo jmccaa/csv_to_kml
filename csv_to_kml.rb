@@ -969,7 +969,7 @@ class Colormap
   end
   
   def color_at(value)
-    raise "value must be between #{@min} and #{@max}, inclusive" if value < @min or value > @max
+    raise "value #{value} must be between #{@min} and #{@max}, inclusive" if value < @min or value > @max
     normalized_value = (value.to_f - @min) / (@max - @min)
     @map.each{|entry|
       return entry[1..3].join("") if entry[0] >= normalized_value
@@ -979,8 +979,6 @@ class Colormap
 
 end
 
-MIN_ICON_SCALE = 0.2
-MAX_ICON_SCALE = 3.0
 HEADER = '<?xml version="1.0" encoding="UTF-8"?>
 <kml>
 <Document>
@@ -1028,12 +1026,18 @@ OptionParser.new do |opts|
   opts.on("-s", "--single-color COLOR", "Single icon color specified in hex notation, e.g. FF00FF, mutually exclusive with -c") { |v| options[:singlecolor] = v } 
   options[:transparency] = 0.2
   opts.on("-t", "--transparency VALUE", "Specify transparency as a value between 0 and 1.  default: #{options[:transparency]}") {|v| options[:transparency] = v}
+  options[:icon_sizes] = [0.4,2.0]
+  opts.on("-r", "--range-of-sizes MIN_SIZE,MAX_SIZE",Array, "Specify range of icon sizes.  default: #{options[:icon_sizes].join(",")}") {|v| options[:icon_sizes] = v.collect{|val| val.to_f}}
+  options[:bounds] = nil
+  opts.on("-b", "--bounds MIN_LON,MAX_LON,MIN_LAT,MAX_LAT",Array, "Specify bounding longitudes and latitudes.") {|v| options[:bounds] = v.collect{|val| val.to_f}}
   options[:usage] = opts
 end.parse!
 
 raise "\n\n**** Need two arguments ****\n\n#{options[:usage]}" unless ARGV.size == 2
 raise "\n\n**** Options -c and -s are mutually exclusive ****\n\n#{options[:usage]}" unless ( options[:singlecolor] == "FE01EF" or options[:color_column].nil? )
 input_file, output_file = ARGV
+MIN_ICON_SCALE,MAX_ICON_SCALE = options[:icon_sizes]
+MIN_LON,MAX_LON,MIN_LAT,MAX_LAT = options[:bounds] unless options[:bounds].nil?
 
 input_lines = IO.readlines(input_file)
 header = input_lines.shift.split(",")
@@ -1065,9 +1069,25 @@ raise "specified column #{options[:color_column]} not found in file" if options[
 raise "specified column #{options[:name_column]} not found in file" if options[:name_column] and name_index.nil?
 raise "specified column #{options[:desc_column]} not found in file" if options[:desc_column] and desc_index.nil?
 
+input_lines.delete_if{|line|
+  values = line.split(",")
+  values[lon_index].to_f < MIN_LON or values[lon_index].to_f > MAX_LON or values[lat_index].to_f < MIN_LAT or values[lat_index].to_f > MAX_LAT
+} unless options[:bounds].nil?
+
 max_val = -Float::MAX
 min_val = Float::MAX
+if options[:color_column]
+  input_lines.each do |line|
+    values = line.split(",")
+    val = values[color_index].to_f
+    max_val = [val,max_val].max
+    min_val = [val,min_val].min
+  end
+end
+cm = Colormap.new(min_val,max_val,options[:colormap])
 
+max_val = -Float::MAX
+min_val = Float::MAX
 if options[:key_column]
   input_lines.each do |line|
     values = line.split(",")
@@ -1076,7 +1096,6 @@ if options[:key_column]
     min_val = [val,min_val].min
   end
 end
-cm = Colormap.new(min_val,max_val,options[:colormap])
 
 of = File.open(output_file,"w")
 of.puts HEADER
