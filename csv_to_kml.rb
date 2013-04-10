@@ -1048,8 +1048,8 @@ color_index = nil
 name_index = nil
 desc_index = nil
 header.each_with_index{|entry,i| 
-  lon_index = i if /longitude/i.match(entry)
-  lat_index = i if /latitude/i.match(entry)
+  lon_index = i if /longitude/i.match(entry) or /POINT_X/i.match(entry)
+  lat_index = i if /latitude/i.match(entry) or /POINT_Y/i.match(entry)
   if options[:key_column]
     key_index = i if /^#{options[:key_column]}$/i.match(entry)
   end
