@@ -996,7 +996,7 @@ PLACEMARK = '
 <Point>
 <coordinates>LONGITUDE,LATITUDE,0</coordinates>
 </Point>
-<Style id="DataPlacemark"><IconStyle><color>COLOR</color><scale>SCALE</scale><Icon><href>ICONPATH</href></Icon></IconStyle></Style>
+<Style id="DataPlacemark"><LabelStyle><scale>LABELSIZE</scale></LabelStyle><IconStyle><color>COLOR</color><scale>SCALE</scale><Icon><href>ICONPATH</href></Icon></IconStyle></Style>
 <styleUrl>#DataPlacemark</styleUrl>
 </Placemark>
 '
@@ -1013,8 +1013,8 @@ OptionParser.new do |opts|
   opts.on("-i", "--icon-path ICONPATH", "Specify icon path as URL","   default: #{options[:iconpath]}") { |v| options[:iconpath] = v } 
   options[:key_column] = nil
   opts.on("-k", "--key COLUMN_NAME", "Specify column in csv file to use for icon size (must be numeric)") {|v| options[:key_column] = v}
-  options[:name_column] = nil
-  opts.on("-n", "--name COLUMN_NAME", "Specify column in csv file to use for name") {|v| options[:name_column] = v}
+  options[:name_column] = [nil,1.0]
+  opts.on("-n", "--name COLUMN_NAME[,SIZE]", Array, "Specify column in csv file to use for labels","Default size is 1.0") {|v| options[:name_column] = v.collect{|val| val}}
   options[:desc_column] = nil
   opts.on("-d", "--description COLUMN_NAME", "Specify column in csv file to use for description") {|v| options[:desc_column] = v}
   options[:color_column] = nil
@@ -1059,8 +1059,8 @@ header.each_with_index{|entry,i|
   if options[:color_column]
     color_index = i if /^#{options[:color_column]}$/i.match(entry)
   end
-  if options[:name_column]
-    name_index = i if /^#{options[:name_column]}$/i.match(entry)
+  if options[:name_column][0]
+    name_index = i if /^#{options[:name_column][0]}$/i.match(entry)
   end
   if options[:desc_column]
     desc_index = i if /^#{options[:desc_column]}$/i.match(entry)
@@ -1069,8 +1069,9 @@ header.each_with_index{|entry,i|
 raise "input file must have a single header line with longitude and latitude among its columns" if lon_index.nil? or lat_index.nil?
 raise "specified column #{options[:key_column]} not found in file" if options[:key_column] and key_index.nil?
 raise "specified column #{options[:color_column]} not found in file" if options[:color_column] and color_index.nil?
-raise "specified column #{options[:name_column]} not found in file" if options[:name_column] and name_index.nil?
+raise "specified column #{options[:name_column][0]} not found in file" if options[:name_column][0] and name_index.nil?
 raise "specified column #{options[:desc_column]} not found in file" if options[:desc_column] and desc_index.nil?
+raise "\n\nSpecifying a name size less than 0.5 is intolerable.\n\n" if options[:name_column][1].to_f < 0.5
 
 input_lines.delete_if{|line|
   values = line.split(",")
@@ -1116,8 +1117,8 @@ input_lines.each do |line|
   end
   transparency = sprintf("%02x",255 - 255 * options[:transparency].to_f)
   mycolor = transparency + ( color_index.nil? ? options[:singlecolor] : cm.color_at(values[color_index].to_f) )
-
-  of.puts PLACEMARK.gsub(/LONGITUDE/,values[lon_index].strip).gsub(/LATITUDE/,values[lat_index].strip).gsub(/COLOR/,mycolor).gsub(/SCALE/,myscale.to_s).gsub(/ICONPATH/,options[:iconpath]).gsub(/NAME/,myname).gsub(/DESCRIPTION/,mydesc)
+  
+  of.puts PLACEMARK.gsub(/LONGITUDE/,values[lon_index].strip).gsub(/LATITUDE/,values[lat_index].strip).gsub(/COLOR/,mycolor).gsub(/SCALE/,myscale.to_s).gsub(/ICONPATH/,options[:iconpath]).gsub(/NAME/,myname).gsub(/DESCRIPTION/,mydesc).gsub(/LABELSIZE/,options[:name_column][1])
 end
 of.puts FOOTER
 of.close
