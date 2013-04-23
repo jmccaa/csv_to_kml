@@ -969,8 +969,8 @@ class Colormap
   end
   
   def color_at(value)
-    raise "value #{value} must be between #{@min} and #{@max}, inclusive" if value < @min or value > @max
-    normalized_value = (value.to_f - @min) / (@max - @min)
+#    raise "value #{value} must be between #{@min} and #{@max}, inclusive" if value < @min or value > @max
+    normalized_value = ([[value.to_f,@min].max,@max].min - @min) / (@max - @min)
     @map.each{|entry|
       return entry[1..3].join("") if entry[0] >= normalized_value
     }
@@ -1019,9 +1019,11 @@ OptionParser.new do |opts|
   opts.on("-d", "--description COLUMN_NAME", "Specify column in csv file to use for description") {|v| options[:desc_column] = v}
   options[:color_column] = nil
   opts.on("-c", "--color COLUMN_NAME", "Specify column in csv file to use for icon colorization (must be numeric)") {|v| options[:color_column] = v}
-  options[:colormap] =  Colormap::PREDEFINED_MAPS.keys.sort.first
-  opts.on("-m", "--map-of-color [NAME]", Colormap::PREDEFINED_MAPS.keys.sort, 
-          "Colormap to use: (#{Colormap::PREDEFINED_MAPS.keys.sort.join(",")})") {|t| options[:colormap] = t}
+  options[:colormap] =  [Colormap::PREDEFINED_MAPS.keys.sort.first]
+  opts.on("-m", "--map NAME,[MIN,MAX]", Array,
+          "Colormap to use: (#{Colormap::PREDEFINED_MAPS.keys.sort[0..9].join(",")}",
+          "#{Colormap::PREDEFINED_MAPS.keys.sort[10..-1].join(",")})",
+          "MIN and MAX will be determined automatically if not specified") {|v| options[:colormap] = v.collect{|val| val}}
   options[:singlecolor] = "FE01EF"
   opts.on("-s", "--single-color COLOR", "Single icon color specified in hex notation, e.g. FF00FF, mutually exclusive with -c") { |v| options[:singlecolor] = v } 
   options[:transparency] = 0.2
@@ -1033,6 +1035,7 @@ OptionParser.new do |opts|
   options[:usage] = opts
 end.parse!
 
+raise "\n\nColormap #{options[:colormap][0]} does not exist\n\n" unless Colormap::PREDEFINED_MAPS.keys.include?(options[:colormap][0])
 raise "\n\n**** Need two arguments ****\n\n#{options[:usage]}" unless ARGV.size == 2
 raise "\n\n**** Options -c and -s are mutually exclusive ****\n\n#{options[:usage]}" unless ( options[:singlecolor] == "FE01EF" or options[:color_column].nil? )
 input_file, output_file = ARGV
@@ -1084,7 +1087,9 @@ if options[:color_column]
     min_val = [val,min_val].min
   end
 end
-cm = Colormap.new(min_val,max_val,options[:colormap])
+min_val = options[:colormap].size > 1 ? options[:colormap][1].to_f : min_val
+max_val = options[:colormap].size > 2 ? options[:colormap][2].to_f : max_val
+cm = Colormap.new(min_val,max_val,options[:colormap][0])
 
 max_val = -Float::MAX
 min_val = Float::MAX
@@ -1112,7 +1117,7 @@ input_lines.each do |line|
   transparency = sprintf("%02x",255 - 255 * options[:transparency].to_f)
   mycolor = transparency + ( color_index.nil? ? options[:singlecolor] : cm.color_at(values[color_index].to_f) )
 
-  of.puts PLACEMARK.gsub(/LONGITUDE/,values[lon_index]).gsub(/LATITUDE/,values[lat_index]).gsub(/COLOR/,mycolor).gsub(/SCALE/,myscale.to_s).gsub(/ICONPATH/,options[:iconpath]).gsub(/NAME/,myname).gsub(/DESCRIPTION/,mydesc)
+  of.puts PLACEMARK.gsub(/LONGITUDE/,values[lon_index].strip).gsub(/LATITUDE/,values[lat_index].strip).gsub(/COLOR/,mycolor).gsub(/SCALE/,myscale.to_s).gsub(/ICONPATH/,options[:iconpath]).gsub(/NAME/,myname).gsub(/DESCRIPTION/,mydesc)
 end
 of.puts FOOTER
 of.close
