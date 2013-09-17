@@ -1013,7 +1013,7 @@ OptionParser.new do |opts|
   opts.on("-i", "--icon-path ICONPATH", "Specify icon path as URL","   default: #{options[:iconpath]}") { |v| options[:iconpath] = v } 
   options[:key_column] = nil
   opts.on("-k", "--key COLUMN_NAME", "Specify column in csv file to use for icon size (must be numeric)") {|v| options[:key_column] = v}
-  options[:name_column] = [nil,1.0]
+  options[:name_column] = [nil,"1.0"]
   opts.on("-n", "--name COLUMN_NAME[,SIZE]", Array, "Specify column in csv file to use for labels","Default size is 1.0") {|v| options[:name_column] = v.collect{|val| val}}
   options[:desc_column] = nil
   opts.on("-d", "--description COLUMN_NAME", "Specify column in csv file to use for description") {|v| options[:desc_column] = v}
